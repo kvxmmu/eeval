@@ -39,15 +39,17 @@ def get_highest_priority_expr(iterable):
         right = it.peek(2)
 
         if isinstance(left, AstTree) or left.tag in (OPERATOR, CONSTANT):
-            return it.get_position(0)
+            return it.get_position(0), len(iterable)
 
         if op is None:
             it.next()
 
             continue
 
-        if isinstance(right, AstTree) or right.tag == CONSTANT:
-            return it.get_position(2)
+        if isinstance(right, AstTree):
+            return it.get_position(2), len(iterable)
+        elif right.tag == CONSTANT:
+            return it.get_position(0), len(iterable)
 
         if op.priority > max_priority:
             max_priority = op.priority
@@ -55,7 +57,7 @@ def get_highest_priority_expr(iterable):
 
         it.next(2)
 
-    return max_pos
+    return max_pos, len(iterable)
 
 
 def ast_eval(tree, int_class, constants=None):
@@ -63,7 +65,7 @@ def ast_eval(tree, int_class, constants=None):
         constants = {}
 
     while True:
-        pos = get_highest_priority_expr(tree.tree)
+        pos, itlen = get_highest_priority_expr(tree.tree)
 
         if pos == -1:
             break
@@ -80,6 +82,9 @@ def ast_eval(tree, int_class, constants=None):
         if left.tag == CONSTANT:
             left.tag = NUMBER
             left.data = constants[left.data]
+
+            if itlen == 1:
+                break
 
         op = tree.tree[pos+1]
 
