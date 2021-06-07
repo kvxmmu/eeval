@@ -1,72 +1,116 @@
-from .constants import (NORMAL_PRIORITY, MAX_PRIORITY,
-                        NO_TYPE)
+from enum import IntEnum
 
-from pprint import pformat
+
+class TokenType(IntEnum):
+    NUMBER = 1
+    OPERATOR = 2
+
+    OPEN_BRACKET = 3
+    CLOSE_BRACKET = 4
+
+    ID = 5
+    COMMA = 6
+
+
+class TokenSubtype(IntEnum):
+    ADD = 1
+    SUB = 2
+
+    MUL = 3
+    DIV = 4
+
+    POW = 5
+
+    FLOAT = 6
+    INT = 7
+
+    NONE = 8
 
 
 class Token:
-    def __init__(self, data, tag,
-                 subtag=NO_TYPE, priority=NORMAL_PRIORITY):
+    def __init__(self, data, type_,
+                 subtype=TokenSubtype.NONE,
+                 char=0):
         self.data = data
-        self.tag = tag
-        self.subtag = subtag
+        self.type = type_
+        self.subtype = subtype
 
-        self.priority = priority
+        self.char = char
 
-    def __str__(self):
-        return "Token(data=%r, tag=%s, subtag=%s, priority=%d)" % (
-            self.data, self.tag,
-            self.subtag, self.priority
-        )
-
-    __repr__ = __str__
-
-
-class AstTree:
-    def __init__(self):
-        self.tree = []
-        self.priority = MAX_PRIORITY
-
-    def add_token(self, token):
-        self.tree.append(token)
-
-    def add_tree(self):
-        tree = AstTree()
-        self.tree.append(tree)
-
-        return tree
-
-    def replace(self, token, pos, count=1):
-        del self.tree[pos:pos+count]
-
-        self.tree.insert(pos, token)
+    def parse(self, parser):
+        if isinstance(self.data, str):
+            self.data = parser(self.data)
 
     def __repr__(self):
-        return pformat(self.tree)
+        return 'Token(data=%r type=%r subtype=%r)' % (self.data, self.type, self.subtype)
 
     __str__ = __repr__
 
 
-class Peekable:
-    def __init__(self, iterable):
-        self.iterable = iterable
-        self.pos = 0
+class Iterator:
+    def __init__(self, container,
+                 default_value=None, start_from=0):
+        self.container = container
+        self.shift = start_from
 
-    @property
-    def length(self):
-        return len(self.iterable)
-
-    def is_done(self, step=0):
-        return (self.pos + step) >= self.length
-
-    def get_position(self, step):
-        return self.pos + step
-
-    def peek(self, step):
-        if self.is_done(step):
-            return
-
-        return self.iterable[self.get_position(step)]
+        self.default_value = default_value
 
     def next(self, step=1):
-        self.pos += step
+        self.shift += step
+
+    def is_done(self, step=0):
+        return (self.shift + step) >= len(self.container)
+
+    def get_position(self, step=0):
+        return self.shift + step
+
+    def peek(self, step=0):
+        if self.is_done(step):
+            return self.default_value
+
+        return self.container[step + self.shift]
+
+
+class AstTree:
+    def __init__(self, indent=0,
+                 objects=None):
+        self.objects = objects or []
+        self.indent = indent
+
+    def add_token(self, token):
+        """
+        Add token to the objects list
+
+        :param token:
+        :type token: Token
+
+        :return: None
+        """
+
+        self.objects.append(token)
+
+    def replace(self, obj,
+                pos, count):
+        if count == 1:
+            self.objects[pos] = obj
+
+            return
+
+        del self.objects[pos:pos+count-1]
+        self.objects[pos] = obj
+
+    def add_tree(self, tree):
+        """
+        Add tree object to the objects list
+
+        :return: None
+        """
+
+        self.objects.append(tree)
+
+    def create_iterator(self):
+        """
+        :return: Iterator
+        """
+
+        return Iterator(self.objects)
